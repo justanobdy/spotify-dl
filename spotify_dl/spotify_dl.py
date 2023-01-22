@@ -4,6 +4,7 @@ import time
 import json
 import os
 import sys
+import json
 from logging import DEBUG
 from pathlib import Path, PurePath
 import spotipy
@@ -112,6 +113,12 @@ def spotify_dl():
         default="",
         help="Download through a proxy. Support HTTP & SOCKS5. Use 'http://username:password@hostname:port' or 'http://hostname:port'",
     )
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        help="Write download data to a json file"
+    )
     args = parser.parse_args()
     num_cores = os.cpu_count()
     args.multi_core = int(args.multi_core)
@@ -168,15 +175,25 @@ def spotify_dl():
     for url in valid_urls:
         url_dict = {}
         item_type, item_id = parse_spotify_url(url)
-        directory_name = get_item_name(sp, item_type, item_id)
+        item_name = get_item_name(sp, item_type, item_id)
+        url_dict["name"] = item_name
         url_dict["save_path"] = Path(
-            PurePath.joinpath(Path(args.output), Path(directory_name))
+            PurePath.joinpath(Path(args.output), Path(item_name))
         )
         url_dict["save_path"].mkdir(parents=True, exist_ok=True)
         console.print(
-            f"Saving songs to [bold green]{directory_name}[/bold green] directory"
+            f"Saving songs to [bold green]{item_name}[/bold green] directory"
         )
         url_dict["songs"] = fetch_tracks(sp, item_type, url)
+        if args.json:
+            actual_data = url_dict.copy()
+            actual_data["save_path"] = str(actual_data["save_path"])
+
+            json_data = json.dumps(actual_data)
+
+            f = open(actual_data["save_path"] + "/playlist.json", "w")
+            f.write(json_data)
+            f.close()
         url_data["urls"].append(url_dict.copy())
     if args.download is True:
         file_name_f = default_filename
